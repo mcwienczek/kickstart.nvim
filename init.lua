@@ -99,7 +99,7 @@ do
   vim.g.maplocalleader = ' '
 
   -- Set to true if you have a Nerd Font installed and selected in the terminal
-  vim.g.have_nerd_font = false
+  vim.g.have_nerd_font = true
 
   -- [[ Setting options ]]
   --  See `:help vim.o`
@@ -110,7 +110,7 @@ do
   vim.o.number = true
   -- You can also add relative line numbers, to help with jumping.
   --  Experiment for yourself to see if you like it!
-  -- vim.o.relativenumber = true
+  vim.o.relativenumber = true
 
   -- Enable mouse mode, can be useful for resizing splits for example!
   vim.o.mouse = 'a'
@@ -122,7 +122,8 @@ do
   --  Schedule the setting after `UiEnter` because it can increase startup-time.
   --  Remove this option if you want your OS clipboard to remain independent.
   --  See `:help 'clipboard'`
-  vim.schedule(function() vim.o.clipboard = 'unnamedplus' end)
+  -- Disabled: explicit "+ clipboard keymaps below instead of global unnamedplus
+  -- vim.schedule(function() vim.o.clipboard = 'unnamedplus' end)
 
   -- Enable break indent
   vim.o.breakindent = true
@@ -227,6 +228,32 @@ do
   vim.keymap.set('n', '<C-l>', '<C-w><C-l>', { desc = 'Move focus to the right window' })
   vim.keymap.set('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the lower window' })
   vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
+
+  -- Custom keymaps for yanking file paths to system clipboard (+)
+  vim.keymap.set('n', '<leader>yp', ":let @+=expand('%:.')<CR>", { desc = 'Copy relative path' })
+  vim.keymap.set('n', '<leader>yP', ':let @+=expand("%:p")<CR>', { desc = 'Copy absolute path' })
+
+  -- Yanking to system clipboard
+  vim.keymap.set('n', '<leader>yy', [["+yy]], { desc = 'Yank line to system clipboard' })
+  vim.keymap.set('v', '<leader>y', [["+y]], { desc = 'Yank selection to system clipboard' })
+  vim.keymap.set('n', '<leader>yY', [["+y$]], { desc = 'Yank to end of line to clipboard' })
+
+  -- Pasting from system clipboard
+  vim.keymap.set({ 'n', 'v' }, '<leader>p', [["+p]], { desc = 'Paste from system clipboard' })
+  vim.keymap.set({ 'n', 'v' }, '<leader>P', [["+P]], { desc = 'Paste before from system clipboard' })
+  vim.keymap.set('i', '<C-p>', '<C-r>+', { desc = 'Paste from clipboard in insert mode' })
+
+  -- Select all
+  vim.keymap.set('n', '<C-a>', 'ggVG', { desc = 'Select all text' })
+
+  -- [[ Filetype Detection ]]
+  -- Recognize .cshtml files as razor (not html) to prevent incorrect formatting
+  vim.filetype.add {
+    extension = {
+      cshtml = 'razor',
+      razor = 'razor',
+    },
+  }
 
   -- NOTE: Some terminals have colliding keymaps or are not able to send distinct keycodes
   -- vim.keymap.set("n", "<C-S-h>", "<C-w>H", { desc = "Move window to the left" })
@@ -383,22 +410,24 @@ do
   -- change the command under that to load whatever the name of that colorscheme is.
   --
   -- If you want to see what colorschemes are already installed, you can use `:Telescope colorscheme`.
-  vim.pack.add { gh 'folke/tokyonight.nvim' }
-  ---@diagnostic disable-next-line: missing-fields
-  require('tokyonight').setup {
-    styles = {
-      comments = { italic = false }, -- Disable italics in comments
-    },
-  }
+  vim.pack.add { { src = gh 'catppuccin/nvim', name = 'catppuccin' } }
+  require('catppuccin').setup {}
 
   -- Load the colorscheme here.
-  -- Like many other themes, this one has different styles, and you could load
-  -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
-  vim.cmd.colorscheme 'tokyonight-night'
+  -- Catppuccin has flavours: latte, frappe, macchiato, mocha.
+  vim.cmd.colorscheme 'catppuccin-mocha'
 
   -- Highlight todo, notes, etc in comments
   vim.pack.add { gh 'folke/todo-comments.nvim' }
   require('todo-comments').setup { signs = false }
+
+  -- Toggleterm: toggle a horizontal terminal with <leader>tt
+  vim.pack.add { gh 'akinsho/toggleterm.nvim' }
+  require('toggleterm').setup {
+    open_mapping = [[<leader>tt]],
+    direction = 'horizontal',
+    size = 10,
+  }
 
   -- [[ mini.nvim ]]
   --  A collection of various small independent plugins/modules
@@ -493,7 +522,12 @@ do
     --     i = { ['<c-enter>'] = 'to_fuzzy_refine' },
     --   },
     -- },
-    -- pickers = {}
+    pickers = {
+      find_files = {
+        hidden = true,
+        no_ignore = true,
+      },
+    },
     extensions = {
       ['ui-select'] = { require('telescope.themes').get_dropdown() },
     },
@@ -686,16 +720,38 @@ do
   --  See `:help lsp-config` for information about keys and how to configure
   ---@type table<string, vim.lsp.Config>
   local servers = {
-    -- clangd = {},
-    -- gopls = {},
-    -- pyright = {},
+    clangd = {},
+    gopls = {
+      settings = {
+        gopls = {
+          analyses = {
+            unusedparams = true,
+          },
+          staticcheck = true,
+          gofumpt = true,
+        },
+      },
+    },
+    pyright = {},
+    ts_ls = {},
+    eslint = {},
+    html = {
+      filetypes = { 'html' },
+      settings = {
+        html = {
+          format = {
+            -- If you want to keep using LSP formatting, adjust these:
+            templating = true, -- Handle {{ }} tags decently
+            wrapLineLength = 120, -- Don't wrap lines too early
+            wrapAttributes = 'auto', -- 'auto', 'force', 'force-aligned', 'force-expand-multiline'
+            -- Elements you DON'T want formatted
+            unformatted = { 'script', 'style', 'pre', 'code', 'textarea' },
+            indentInnerHtml = true,
+          },
+        },
+      },
+    },
     -- rust_analyzer = {},
-    --
-    -- Some languages (like typescript) have entire language plugins that can be useful:
-    --    https://github.com/pmizio/typescript-tools.nvim
-    --
-    -- But for many setups, the LSP (`ts_ls`) will work just fine
-    -- ts_ls = {},
 
     stylua = {}, -- Used to format Lua code
 
@@ -754,6 +810,11 @@ do
   local ensure_installed = vim.tbl_keys(servers or {})
   vim.list_extend(ensure_installed, {
     -- You can add other tools here that you want Mason to install
+    'prettierd',
+    'black',
+    'isort',
+    'goimports',
+    'clang-format',
   })
 
   require('mason-tool-installer').setup { ensure_installed = ensure_installed }
@@ -762,6 +823,10 @@ do
     vim.lsp.config(name, server)
     vim.lsp.enable(name)
   end
+
+  -- Roslyn (C#) language server integration; activates on C# buffers.
+  vim.pack.add { gh 'seblyng/roslyn.nvim' }
+  require('roslyn').setup {}
 end
 
 -- ============================================================
@@ -776,8 +841,15 @@ do
     format_on_save = function(bufnr)
       -- You can specify filetypes to autoformat on save here:
       local enabled_filetypes = {
-        -- lua = true,
-        -- python = true,
+        lua = true,
+        markdown = true,
+        python = true,
+        json = true,
+        cs = true,
+        razor = true,
+        go = true,
+        c = true,
+        cpp = true,
       }
       if enabled_filetypes[vim.bo[bufnr].filetype] then
         return { timeout_ms = 500 }
@@ -790,6 +862,15 @@ do
     },
     -- You can also specify external formatters in here.
     formatters_by_ft = {
+      lua = { 'stylua' },
+      markdown = { 'prettierd' },
+      python = { 'isort', 'black' },
+      json = { 'prettierd' },
+      cs = { 'csharpier' },
+      razor = {},
+      go = { 'goimports', 'gofmt' },
+      c = { 'clang-format' },
+      cpp = { 'clang-format' },
       -- rust = { 'rustfmt' },
       -- Conform can also run multiple formatters sequentially
       -- python = { "isort", "black" },
@@ -848,6 +929,11 @@ do
       -- See `:help blink-cmp-config-keymap` for defining your own keymap
       preset = 'default',
 
+      -- Traditional completion keymaps (ported from the previous nvim-cmp setup)
+      ['<CR>'] = { 'accept', 'fallback' },
+      ['<Tab>'] = { 'select_next', 'fallback' },
+      ['<S-Tab>'] = { 'select_prev', 'fallback' },
+
       -- For more advanced Luasnip keymaps (e.g. selecting choice nodes, expansion) see:
       --    https://github.com/L3MON4D3/LuaSnip?tab=readme-ov-file#keymaps
     },
@@ -898,7 +984,7 @@ do
   vim.pack.add { { src = gh 'nvim-treesitter/nvim-treesitter', version = 'main' } }
 
   -- Ensure basic parsers are installed
-  local parsers = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' }
+  local parsers = { 'bash', 'c', 'cpp', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc', 'gitcommit', 'python', 'go', 'gomod', 'gowork', 'gosum' }
   require('nvim-treesitter').install(parsers)
 
   ---@param buf integer
@@ -964,7 +1050,7 @@ do
   -- require 'kickstart.plugins.indent_line'
   -- require 'kickstart.plugins.lint'
   -- require 'kickstart.plugins.autopairs'
-  -- require 'kickstart.plugins.neo-tree'
+  require 'kickstart.plugins.neo-tree'
   -- require 'kickstart.plugins.gitsigns' -- adds gitsigns recommended keymaps
 
   -- NOTE: You can add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
@@ -972,6 +1058,16 @@ do
   --  Uncomment the following line and add your plugins to `lua/custom/plugins/*.lua` to get going.
   -- require 'custom.plugins'
 end
+
+-- Use 2-space indentation for C/C++ files
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = { 'c', 'cpp', 'h', 'hpp' },
+  callback = function()
+    vim.opt_local.tabstop = 2 -- Visual width of a tab
+    vim.opt_local.shiftwidth = 2 -- Width of an auto-indent
+    vim.opt_local.expandtab = true -- Convert tabs to spaces
+  end,
+})
 
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et
